@@ -1,0 +1,36 @@
+﻿@{
+    ViewData["Title"] = "Вхід у малювалку";
+}
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white text-center">
+                    <h3>Спільна малювалка</h3>
+                </div>
+                <div class="card-body">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label for="userInput" class="form-label">Введіть ваше ім'я</label>
+                            <input type="text" id="userInput" class="form-control" placeholder="Ваше ім'я" required />
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">Увійти</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById("loginForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        let user = document.getElementById("userInput").value.trim();
+        if (!user) user = "Анонім";
+        const encodedUser = encodeURIComponent(user);
+        window.location.href = `/Draw/Index?user=${encodedUser}`;
+    });
+</script>

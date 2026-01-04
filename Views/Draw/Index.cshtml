@@ -1,0 +1,316 @@
+﻿@{
+    ViewData["Title"] = "Спільна рисовалка на SignalR";
+}
+
+<div class="min-vh-100 bg-light py-5">
+    <div class="container">
+        <!-- заголовок -->
+        <div class="d-flex align-items-center justify-content-center mb-4">
+            <h1 class="h3 mb-0 text-dark fw-bold">
+                Вітаємо, <span id="currentUser" class="text-primary">завантаження...</span>!
+            </h1>
+            <button id="logoutButton" class="btn btn-outline-secondary btn-sm ms-4 px-4 shadow-sm">
+                <i class="bi bi-box-arrow-right me-2"></i>Вийти
+            </button>
+        </div>
+
+        <div class="row g-4">
+            <!-- холст + палітра -->
+            <div class="col-lg-8">
+                <div class="card shadow-lg border-0">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3 rounded-top"
+                         style="background: linear-gradient(135deg, #0d6efd, #0a58ca);">
+                        <h5 class="mb-0 fw-bold"><i class="bi bi-palette me-2"></i>Спільний холст</h5>
+                        <button id="clearButton" class="btn btn-warning btn-sm shadow-sm">
+                            <i class="bi bi-trash me-1"></i>Очистити для всіх
+                        </button>
+                    </div>
+
+                    <div class="card-body p-4">
+                        <!-- контейнер для canvas -->
+                        <div id="canvasContainer" class="bg-white rounded-3 shadow-sm overflow-hidden" style="height: 60vh; min-height: 400px;">
+                            <canvas id="drawingCanvas" class="position-absolute top-0 start-0"></canvas>
+                        </div>
+
+                        <!-- палітра -->
+                        <div class="mt-4 text-center">
+                            <p class="text-muted mb-3 fw-medium">Оберіть колір:</p>
+                            <div class="d-flex flex-wrap justify-content-center gap-3">
+                                <button class="color-btn active" data-color="#e74c3c" title="Червоний">
+                                    <div class="color-swatch" style="background:#e74c3c;"></div>
+                                </button>
+                                <button class="color-btn" data-color="#f39c12" title="Помаранчевий">
+                                    <div class="color-swatch" style="background:#f39c12;"></div>
+                                </button>
+                                <button class="color-btn" data-color="#f1c40f" title="Жовтий">
+                                    <div class="color-swatch" style="background:#f1c40f;"></div>
+                                </button>
+                                <button class="color-btn" data-color="#2ecc71" title="Зелений">
+                                    <div class="color-swatch" style="background:#2ecc71;"></div>
+                                </button>
+                                <button class="color-btn" data-color="#3498db" title="Синій">
+                                    <div class="color-swatch" style="background:#3498db;"></div>
+                                </button>
+                                <button class="color-btn" data-color="#9b59b6" title="Фіолетовий">
+                                    <div class="color-swatch" style="background:#9b59b6;"></div>
+                                </button>
+                                <button class="color-btn" data-color="#34495e" title="Чорний">
+                                    <div class="color-swatch" style="background:#34495e;"></div>
+                                </button>
+                                <button class="color-btn" data-color="#ffffff" title="Білий (ластик)">
+                                    <div class="color-swatch" style="background:#ffffff; border: 2px solid #ddd;"></div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- онлайн користувачі -->
+            <div class="col-lg-4">
+                <div class="card shadow-lg border-0 sticky-top" style="top: 1.5rem;">
+                    <div class="card-header bg-success text-white py-3"
+                         style="background: linear-gradient(135deg, #198754, #157347);">
+                        <h5 class="mb-0 fw-bold">
+                            <i class="bi bi-people-fill me-2"></i>
+                            Онлайн (<span id="onlineCount">0</span>)
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul id="onlineUsersList" class="list-group list-group-flush"></ul>
+                        <div class="p-3 text-center text-muted small" id="noUsersMessage">Поки що нікого немає...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    #canvasContainer {
+        position: relative;
+        background: #ffffff;
+    }
+
+    #drawingCanvas {
+        cursor: crosshair;
+        touch-action: none;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    .color-btn {
+        width: 56px;
+        height: 56px;
+        padding: 0;
+        border-radius: 50%;
+        border: 4px solid transparent;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+
+    .color-swatch {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        transition: transform 0.3s ease;
+    }
+
+    .color-btn:hover .color-swatch {
+        transform: scale(1.2);
+    }
+
+    .color-btn.active {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.3);
+        transform: scale(1.1);
+    }
+</style>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/9.0.6/signalr.min.js"></script>
+    <script>
+        // користувач
+        const urlParams = new URLSearchParams(window.location.search);
+        let userName = urlParams.get('user') || '';
+        if (!userName.trim()) window.location.href = "/Draw/Login";
+        userName = decodeURIComponent(userName).trim() || "Анонім";
+        document.getElementById("currentUser").textContent = userName;
+
+        // підключення до SignalR
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl("/drawHub" + window.location.search)
+            .withAutomaticReconnect()
+            .build();
+
+        // налаштування канвасу
+        const canvas = document.getElementById("drawingCanvas");
+        const ctx = canvas.getContext("2d");
+        const container = document.getElementById("canvasContainer");
+
+        let history = []; // зебереження історії локально для перемальовки після resize
+
+        // ресайз канвасу зі збереженням малюнка
+        function resizeCanvas() {
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // збереження поточного малюноку
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+            canvas.width = width;
+            canvas.height = height;
+
+            // відновлення малюнок
+            ctx.putImageData(imageData, 0, 0);
+
+            // якщо малюнка не було — перемальовуємо історію
+            if (history.length > 0) {
+                ctx.clearRect(0, 0, width, height);
+                history.forEach(action => drawPath(action.points, action.color, action.lineWidth));
+            }
+        }
+
+        window.addEventListener("resize", resizeCanvas);
+        resizeCanvas(); // початковий розмір
+
+        let isDrawing = false;
+        let currentPath = [];
+        let currentColor = "#e74c3c";
+
+        // палітра
+        document.querySelectorAll(".color-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                document.querySelector(".color-btn.active")?.classList.remove("active");
+                btn.classList.add("active");
+                currentColor = btn.dataset.color;
+            });
+        });
+
+        // малювання
+        function drawPath(points, color, lineWidth = 5) {
+            if (points.length < 2) return;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(points[i].x, points[i].y);
+            }
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches?.[0]?.clientX);
+            const clientY = e.clientY || (e.touches?.[0]?.clientY);
+            return {
+                x: (clientX - rect.left) * (canvas.width / rect.width),
+                y: (clientY - rect.top) * (canvas.height / rect.height)
+            };
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const pos = getMousePos(e);
+            currentPath = [pos];
+        }
+
+        function drawing(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            currentPath.push(pos);
+            drawPath(currentPath, currentColor, 5);
+        }
+
+        function stopDrawing() {
+            if (!isDrawing || currentPath.length < 2) {
+                isDrawing = false;
+                return;
+            }
+            connection.invoke("DrawPath", currentPath, currentColor, 5);
+            history.push({ points: currentPath, color: currentColor, lineWidth: 5 });
+            isDrawing = false;
+            currentPath = [];
+        }
+
+        // події
+        canvas.addEventListener("mousedown", startDrawing);
+        canvas.addEventListener("mousemove", drawing);
+        canvas.addEventListener("mouseup", stopDrawing);
+        canvas.addEventListener("mouseout", stopDrawing);
+
+        canvas.addEventListener("touchstart", e => { e.preventDefault(); startDrawing(e.touches[0]); });
+        canvas.addEventListener("touchmove", e => { e.preventDefault(); drawing(e.touches[0]); });
+        canvas.addEventListener("touchend", stopDrawing);
+
+        // кнопки
+        document.getElementById("clearButton").onclick = () => {
+            if (confirm("Очистити холст для всіх?")) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                history = [];
+                connection.invoke("ClearCanvas");
+            }
+        };
+
+        document.getElementById("logoutButton").onclick = () => {
+            if (confirm("Вийти?")) {
+                connection.stop();
+                window.location.href = "/Draw/Login";
+            }
+        };
+
+        // SignalR
+        connection.on("LoadHistory", serverHistory => {
+            history = serverHistory.map(h => ({ points: h.Points, color: h.Color, lineWidth: h.LineWidth }));
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            history.forEach(action => drawPath(action.points, action.color, action.lineWidth));
+        });
+
+        connection.on("DrawPath", (points, color, lineWidth) => {
+            drawPath(points, color, lineWidth);
+            history.push({ points, color, lineWidth });
+        });
+
+        connection.on("ClearCanvas", () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            history = [];
+        });
+
+        connection.on("UpdateOnlineUsers", users => {
+            const list = document.getElementById("onlineUsersList");
+            const count = document.getElementById("onlineCount");
+            const noMsg = document.getElementById("noUsersMessage");
+
+            list.innerHTML = "";
+            if (users.length === 0) {
+                noMsg.style.display = "block";
+            } else {
+                noMsg.style.display = "none";
+                users.forEach(u => {
+                    const li = document.createElement("li");
+                    li.className = "list-group-item d-flex align-items-center py-3";
+                    li.innerHTML = `<i class="bi bi-person-circle text-primary me-3 fs-4"></i><span>${u}</span>`;
+                    list.appendChild(li);
+                });
+            }
+            count.textContent = users.length;
+        });
+
+        // старт
+        connection.start()
+            .then(() => connection.invoke("Connect", userName))
+            .catch(err => {
+                console.error(err);
+                alert("Не вдалося підключитися");
+            });
+    </script>
+}
